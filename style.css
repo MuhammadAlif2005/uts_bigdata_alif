@@ -1,0 +1,123 @@
+/* ==========================================================
+   style.css  -  semua tampilan (CSS) aplikasi ada di file ini
+   Ubah nilai di bagian :root untuk mengganti warna seluruh app
+   ========================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+:root {
+    --warna-1: #6366f1;   /* ungu kebiruan */
+    --warna-2: #a855f7;   /* ungu */
+    --warna-3: #ec4899;   /* pink */
+    --kartu: rgba(255, 255, 255, 0.05);
+    --garis: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Dasar halaman ---------- */
+html, body, [class*="css"], .stApp {
+    font-family: 'Poppins', 'Segoe UI', sans-serif;
+}
+.stApp {
+    background:
+        radial-gradient(900px 500px at 10% -10%, rgba(99,102,241,.25), transparent 60%),
+        radial-gradient(800px 500px at 100% 0%, rgba(236,72,153,.18), transparent 55%),
+        #0b1020;
+}
+.block-container { padding-top: 2rem; max-width: 1150px; }
+#MainMenu, footer { visibility: hidden; }
+
+/* ---------- Banner utama ---------- */
+.hero {
+    position: relative; overflow: hidden;
+    padding: 2rem 2.2rem; border-radius: 22px; margin-bottom: 1.2rem;
+    background: linear-gradient(120deg, var(--warna-1), var(--warna-2) 55%, var(--warna-3));
+    box-shadow: 0 18px 50px rgba(124, 58, 237, .35);
+    animation: muncul .7s ease both;
+}
+.hero::after {
+    content: ""; position: absolute; right: -60px; top: -60px;
+    width: 240px; height: 240px; border-radius: 50%;
+    background: rgba(255,255,255,.14);
+    animation: melayang 6s ease-in-out infinite;
+}
+.hero h1 { margin: 0; font-size: 2.2rem; font-weight: 700; color: #fff; }
+.hero p  { margin: .5rem 0 0; color: rgba(255,255,255,.92); font-size: 1rem; }
+
+/* ---------- Langkah penggunaan ---------- */
+.steps { display: flex; gap: .8rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+.step {
+    flex: 1; min-width: 180px; padding: .8rem 1rem; border-radius: 14px;
+    background: var(--kartu); border: 1px solid var(--garis);
+    transition: transform .2s ease, border-color .2s ease;
+}
+.step:hover { transform: translateY(-3px); border-color: var(--warna-2); }
+.step b { color: var(--warna-2); margin-right: .4rem; }
+
+/* ---------- Kartu hasil ---------- */
+.card {
+    padding: 1.4rem 1rem; border-radius: 20px; text-align: center;
+    background: var(--kartu); border: 1px solid var(--garis);
+    backdrop-filter: blur(8px);
+    animation: muncul .5s ease both;
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+.card:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(0,0,0,.35); }
+.card .model { font-size: .75rem; letter-spacing: .14em; opacity: .65; }
+.card .emoji { font-size: 4rem; line-height: 1.15; animation: loncat 1.6s ease-in-out infinite; }
+.card .label { font-size: 1.7rem; font-weight: 700; text-transform: capitalize; }
+.card.low { border-color: #f59e0b; box-shadow: 0 0 0 1px #f59e0b66; }
+
+/* ---------- Batang probabilitas ---------- */
+.bar-row { margin: .7rem 0; text-align: left; }
+.bar-head { display: flex; justify-content: space-between; font-size: .9rem; margin-bottom: .25rem; }
+.bar-bg { height: 12px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
+.bar-fill {
+    height: 100%; border-radius: 99px;
+    background: linear-gradient(90deg, var(--warna-1), var(--warna-3));
+    animation: isi 1s ease both;
+}
+.bar-fill.rendah { background: linear-gradient(90deg, #475569, #94a3b8); }
+
+/* ---------- Kondisi kosong ---------- */
+.kosong {
+    text-align: center; padding: 2.5rem 1rem; border-radius: 20px;
+    border: 2px dashed var(--garis); background: var(--kartu);
+}
+.kosong .ikon { font-size: 3rem; }
+
+/* ---------- Komponen bawaan Streamlit ---------- */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #121832, #0d1226);
+    border-right: 1px solid var(--garis);
+}
+div[data-testid="stMetric"] {
+    background: var(--kartu); border: 1px solid var(--garis);
+    padding: .8rem 1rem; border-radius: 14px;
+}
+div[data-testid="stFileUploaderDropzone"] {
+    border: 2px dashed var(--warna-2); border-radius: 18px;
+    background: var(--kartu); transition: background .2s ease;
+}
+div[data-testid="stFileUploaderDropzone"]:hover { background: rgba(168,85,247,.12); }
+.stButton > button, .stDownloadButton > button {
+    border-radius: 12px; border: 0; font-weight: 600; color: #fff;
+    background: linear-gradient(120deg, var(--warna-1), var(--warna-2));
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.stButton > button:hover, .stDownloadButton > button:hover {
+    transform: translateY(-2px); box-shadow: 0 8px 22px rgba(168,85,247,.45); color: #fff;
+}
+button[data-baseweb="tab"] { font-weight: 600; }
+div[data-testid="stImage"] img { border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+
+/* ---------- Animasi ---------- */
+@keyframes muncul  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes loncat  { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes melayang{ 0%,100% { transform: translate(0,0); } 50% { transform: translate(-20px, 18px); } }
+@keyframes isi     { from { width: 0; } }
+
+/* ---------- Layar kecil (HP) ---------- */
+@media (max-width: 640px) {
+    .hero { padding: 1.3rem 1.2rem; }
+    .hero h1 { font-size: 1.6rem; }
+    .card .emoji { font-size: 3rem; }
+}

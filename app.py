@@ -1,4 +1,5 @@
 import hashlib
+import html
 import time
 from datetime import datetime
 from pathlib import Path
@@ -7,6 +8,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from PIL import Image
+
+BASE_DIR = Path(__file__).parent
 
 # ==========================================================
 # Konfigurasi halaman
@@ -20,35 +23,29 @@ st.set_page_config(
 
 CLASS_NAMES = ["horses", "humans"]  # urutan sesuai folder dataset saat training
 EMOJI = {"horses": "🐴", "humans": "🧍"}
-SAMPLE_DIR = Path("sample_image")
+SAMPLE_DIR = BASE_DIR / "sample_image"
+IMG_TYPES = {".jpg", ".jpeg", ".png"}
+
+
+def load_css():
+    """Membaca style.css lalu menyuntikkannya ke halaman."""
+    css_path = BASE_DIR / "style.css"
+    if css_path.exists():
+        st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+
+
+load_css()
 
 st.markdown(
     """
-    <style>
-    .hero {
-        padding: 1.6rem 1.8rem; border-radius: 18px; margin-bottom: 1.2rem;
-        background: linear-gradient(120deg, #4f46e5 0%, #9333ea 55%, #ec4899 100%);
-        color: white;
-    }
-    .hero h1 { margin: 0; font-size: 2.1rem; color: white; }
-    .hero p  { margin: .4rem 0 0 0; opacity: .92; }
-    .card {
-        padding: 1.2rem 1rem; border-radius: 16px; text-align: center;
-        border: 1px solid rgba(128,128,128,.25);
-        background: rgba(128,128,128,.07);
-    }
-    .card .emoji { font-size: 3.4rem; line-height: 1.1; }
-    .card .label { font-size: 1.6rem; font-weight: 700; text-transform: capitalize; }
-    .card .model { font-size: .8rem; opacity: .7; letter-spacing: .08em; }
-    .card.low { border-color: #f59e0b; }
-    div[data-testid="stMetric"] {
-        background: rgba(128,128,128,.07); padding: .7rem .9rem;
-        border-radius: 12px; border: 1px solid rgba(128,128,128,.2);
-    }
-    </style>
     <div class="hero">
         <h1>🐴 Horses or Humans 🧍</h1>
         <p>Klasifikasi gambar dengan CNN Keras dan YOLOv8. Unggah foto, ambil dari kamera, atau pilih contoh.</p>
+    </div>
+    <div class="steps">
+        <div class="step"><b>1</b>Pilih model di sidebar</div>
+        <div class="step"><b>2</b>Unggah atau pilih gambar</div>
+        <div class="step"><b>3</b>Lihat hasil dan riwayat</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -63,14 +60,14 @@ st.markdown(
 def load_yolo():
     from ultralytics import YOLO
 
-    return YOLO("model/best.pt")
+    return YOLO(str(BASE_DIR / "model" / "best.pt"))
 
 
 @st.cache_resource(show_spinner="Memuat model CNN Keras...")
 def load_keras():
     import tensorflow as tf
 
-    return tf.keras.models.load_model("model/classifier_model.h5", compile=False)
+    return tf.keras.models.load_model(str(BASE_DIR / "model" / "classifier_model.h5"), compile=False)
 
 
 def predict_keras(img: Image.Image) -> dict:
@@ -105,24 +102,32 @@ def render_result(res: dict, threshold: float):
     label, conf = labels[idx], float(probs[idx])
     low = conf < threshold
 
+    bars = ""
+    for i, name in enumerate(labels):
+        pct = float(probs[i]) * 100
+        top = "" if i == idx else "rendah"
+        bars += (
+            f'<div class="bar-row"><div class="bar-head">'
+            f'<span>{EMOJI.get(name, "")} {html.escape(str(name))}</span><span>{pct:.1f}%</span></div>'
+            f'<div class="bar-bg"><div class="bar-fill {top}" style="width:{pct:.1f}%"></div></div></div>'
+        )
+
     st.markdown(
         f"""
         <div class="card {'low' if low else ''}">
-            <div class="model">{res['name'].upper()}</div>
+            <div class="model">{html.escape(res['name'].upper())}</div>
             <div class="emoji">{EMOJI.get(label, '❓')}</div>
-            <div class="label">{label}</div>
+            <div class="label">{html.escape(str(label))}</div>
+            {bars}
         </div>
         """,
         unsafe_allow_html=True,
     )
     c1, c2 = st.columns(2)
     c1.metric("Keyakinan", f"{conf * 100:.1f}%")
-    c2.metric("Waktu inferensi", f"{res['ms']:.0f} ms")
+    c2.metric("Waktu", f"{res['ms']:.0f} ms")
     if low:
         st.warning(f"Keyakinan di bawah ambang {threshold * 100:.0f}%. Hasil kurang bisa diandalkan.")
-
-    df = pd.DataFrame({"Probabilitas (%)": probs * 100}, index=labels)
-    st.bar_chart(df, height=180)
     return label, conf
 
 
@@ -150,10 +155,7 @@ if "last_key" not in st.session_state:
 
 with st.sidebar:
     st.header("⚙️ Pengaturan")
-    mode = st.radio(
-        "Model",
-        ["YOLOv8 (best.pt)", "CNN Keras (.h5)", "Bandingkan keduanya"],
-    )
+    mode = st.radio("Model", ["YOLOv8 (best.pt)", "CNN Keras (.h5)", "Bandingkan keduanya"])
     threshold = st.slider("Ambang keyakinan", 0.5, 0.99, 0.80, 0.01)
     source_type = st.radio("Sumber gambar", ["📤 Unggah", "📷 Kamera", "🖼️ Contoh"])
     st.divider()
@@ -176,9 +178,11 @@ elif source_type == "📷 Kamera":
     if cam is not None:
         img, source_name = Image.open(cam).convert("RGB"), "kamera"
 else:
-    samples = sorted(
-        p for p in SAMPLE_DIR.glob("*") if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
-    ) if SAMPLE_DIR.exists() else []
+    samples = (
+        sorted(p for p in SAMPLE_DIR.glob("*") if p.suffix.lower() in IMG_TYPES)
+        if SAMPLE_DIR.exists()
+        else []
+    )
     if not samples:
         st.info("Folder sample_image kosong atau tidak ditemukan. Tambahkan beberapa gambar ke folder tersebut.")
     else:
@@ -192,11 +196,16 @@ tab_pred, tab_hist = st.tabs(["🔍 Prediksi", "🕑 Riwayat"])
 
 with tab_pred:
     if img is None:
-        st.info("Pilih atau unggah gambar untuk memulai.")
+        st.markdown(
+            '<div class="kosong"><div class="ikon">🖼️</div>'
+            "<h3>Belum ada gambar</h3>"
+            "<p>Pilih sumber gambar di sidebar, lalu unggah atau pilih gambar untuk memulai.</p></div>",
+            unsafe_allow_html=True,
+        )
     else:
         left, right = st.columns([1, 1.4], gap="large")
         with left:
-            st.image(img, caption=source_name, use_container_width=True)
+            st.image(img, caption=source_name, width="stretch")
 
         key = (hashlib.md5(img.tobytes()).hexdigest(), mode)
         is_new = key != st.session_state.last_key
@@ -204,8 +213,7 @@ with tab_pred:
         with right:
             with st.spinner("Menganalisis gambar..."):
                 if mode == "Bandingkan keduanya":
-                    # YOLO dulu, baru TensorFlow
-                    results = [predict_yolo(img), predict_keras(img)]
+                    results = [predict_yolo(img), predict_keras(img)]  # YOLO dulu, baru TensorFlow
                 elif mode == "YOLOv8 (best.pt)":
                     results = [predict_yolo(img)]
                 else:
@@ -232,14 +240,18 @@ with tab_pred:
 
 with tab_hist:
     if not st.session_state.history:
-        st.write("Belum ada prediksi.")
+        st.markdown(
+            '<div class="kosong"><div class="ikon">🕑</div><h3>Belum ada riwayat</h3>'
+            "<p>Hasil prediksi akan muncul di sini.</p></div>",
+            unsafe_allow_html=True,
+        )
     else:
         hist = pd.DataFrame(st.session_state.history)
         c1, c2, c3 = st.columns(3)
         c1.metric("Total prediksi", len(hist))
         c2.metric("Rata-rata keyakinan", f"{hist['Keyakinan (%)'].mean():.1f}%")
         c3.metric("Rata-rata waktu", f"{hist['Waktu (ms)'].mean():.0f} ms")
-        st.dataframe(hist, use_container_width=True, hide_index=True)
+        st.dataframe(hist, width="stretch", hide_index=True)
         b1, b2 = st.columns(2)
         b1.download_button(
             "⬇️ Unduh CSV",
@@ -249,5 +261,4 @@ with tab_hist:
         )
         if b2.button("🗑️ Hapus riwayat"):
             st.session_state.history = []
-            st.session_state.last_key = None
             st.rerun()
